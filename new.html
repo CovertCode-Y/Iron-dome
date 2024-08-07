@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מערכת יירוט איומים</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            display: flex;
+            justify-content: space-between;
+        }
+        .panel {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h2 {
+            color: #333;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: right;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        select, input {
+            margin: 5px 0;
+            padding: 5px;
+        }
+        #map {
+            width: 100%;
+            height: 300px;
+            background-color: #e6e6e6;
+            position: relative;
+            margin-top: 20px;
+        }
+        .threat {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: red;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="panel" id="adminPanel">
+            <h2>ניהול מערכת (מנהל)</h2>
+            <div id="defenseSystems"></div>
+            <button onclick="addDefenseSystem()">הוסף מערכת הגנה</button>
+            <button onclick="addInterceptors()">הוסף טילי יירוט</button>
+        </div>
+        
+        <div class="panel" id="attackPanel">
+            <h2>מערכת ניהול איומים (התקפה)</h2>
+            <form id="threatForm">
+                <select id="source">
+                    <option value="hezbollah">חיזבאללה (לבנון)</option>
+                    <option value="hamas">חמאס (עזה)</option>
+                    <option value="iran">איראן</option>
+                    <option value="westbank">איו"ש</option>
+                </select>
+                <select id="type">
+                    <option value="rocket">רקטות</option>
+                    <option value="ballistic">טילים בליסטיים</option>
+                    <option value="uav">כטב"מים</option>
+                </select>
+                <input type="number" id="quantity" placeholder="כמות" min="1">
+                <button type="submit">הוסף איום</button>
+            </form>
+            <table id="threatTable">
+                <tr>
+                    <th>מקור</th>
+                    <th>סוג</th>
+                    <th>כמות</th>
+                    <th>זמן תגובה</th>
+                </tr>
+            </table>
+            <button onclick="startAttack()">התחל התקפה</button>
+        </div>
+        
+        <div class="panel" id="defensePanel">
+            <h2>מערכת הגנה אווירית</h2>
+            <div id="map"></div>
+            <div id="activeThreats"></div>
+            <div id="defenseSystems"></div>
+            <table id="hitThreats">
+                <tr>
+                    <th>איומים שפגעו</th>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let threats = [];
+        let activeThreats = [];
+        let defenseSystems = [
+            { name: 'כיפת ברזל', quantity: 20, type: 'rocket' },
+            { name: 'שרביט קסמים', quantity: 15, type: 'ballistic' },
+            { name: 'פטריוט', quantity: 10, type: 'uav' }
+        ];
+
+        const speeds = {
+            uav: 300,
+            rocket: 880,
+            ballistic: 18000
+        };
+
+        const distances = {
+            hezbollah: 100,
+            hamas: 70,
+            iran: 1600,
+            westbank: 50
+        };
+
+        function updateDefenseSystemsDisplay() {
+            const adminDefenseDiv = document.querySelector('#adminPanel #defenseSystems');
+            const defenseDefenseDiv = document.querySelector('#defensePanel #defenseSystems');
+            adminDefenseDiv.innerHTML = '';
+            defenseDefenseDiv.innerHTML = '';
+            defenseSystems.forEach(system => {
+                adminDefenseDiv.innerHTML += `
+                    <div>
+                        ${system.name}: ${system.quantity}
+                        <button onclick="addInterceptorsTo('${system.name}')">+</button>
+                    </div>`;
+                defenseDefenseDiv.innerHTML += `<button onclick="intercept('${system.name}')">${system.name} (${system.quantity})</button>`;
+            });
+        }
+
+        function addDefenseSystem() {
+            const name = prompt('שם מערכת ההגנה:');
+            const quantity = parseInt(prompt('כמות:'));
+            const type = prompt('סוג איום (rocket/ballistic/uav):');
+            defenseSystems.push({ name, quantity, type });
+            updateDefenseSystemsDisplay();
+        }
+
+        function addInterceptors() {
+            const systemName = prompt('שם מערכת ההגנה להוספת טילים:');
+            const system = defenseSystems.find(s => s.name === systemName);
+            if (system) {
+                const quantity = parseInt(prompt('כמות טילים להוספה:'));
+                if (!isNaN(quantity) && quantity > 0) {
+                    system.quantity += quantity;
+                    updateDefenseSystemsDisplay();
+                    alert(`נוספו ${quantity} טילים למערכת ${systemName}`);
+                } else {
+                    alert('כמות לא תקינה');
+                }
+            } else {
+                alert('מערכת הגנה לא נמצאה');
+            }
+        }
+
+        function addInterceptorsTo(systemName) {
+            const quantity = parseInt(prompt(`כמות טילים להוספה למערכת ${systemName}:`));
+            if (!isNaN(quantity) && quantity > 0) {
+                const system = defenseSystems.find(s => s.name === systemName);
+                system.quantity += quantity;
+                updateDefenseSystemsDisplay();
+                alert(`נוספו ${quantity} טילים למערכת ${systemName}`);
+            } else {
+                alert('כמות לא תקינה');
+            }
+        }
+
+        document.getElementById('threatForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const source = document.getElementById('source').value;
+            const type = document.getElementById('type').value;
+            const quantity = parseInt(document.getElementById('quantity').value);
+            const responseTime = calculateResponseTime(source, type);
+            threats.push({ source, type, quantity, responseTime });
+            updateThreatTable();
+        });
+
+        function calculateResponseTime(source, type) {
+            const speed = speeds[type];
+            const distance = distances[source];
+            return Math.round((distance / speed) * 3600);
+        }
+
+        function updateThreatTable() {
+            const table = document.getElementById('threatTable');
+            table.innerHTML = '<tr><th>מקור</th><th>סוג</th><th>כמות</th><th>זמן תגובה</th></tr>';
+            threats.forEach(threat => {
+                table.innerHTML += `<tr><td>${threat.source}</td><td>${threat.type}</td><td>${threat.quantity}</td><td>${threat.responseTime} שניות</td></tr>`;
+            });
+        }
+
+        function startAttack() {
+            activeThreats = [...threats];
+            threats = [];
+            updateThreatTable();
+            updateActiveThreats();
+            animateThreats();
+        }
+
+        function updateActiveThreats() {
+            const activeThreatsDiv = document.getElementById('activeThreats');
+            activeThreatsDiv.innerHTML = '<h3>איומים פעילים</h3>';
+            activeThreats.forEach(threat => {
+                activeThreatsDiv.innerHTML += `<div>${threat.source} - ${threat.type} (${threat.quantity}): ${threat.responseTime} שניות</div>`;
+            });
+        }
+
+        function animateThreats() {
+            const map = document.getElementById('map');
+            map.innerHTML = '';
+            activeThreats.forEach(threat => {
+                const threatElement = document.createElement('div');
+                threatElement.className = 'threat';
+                threatElement.style.left = '0px';
+                threatElement.style.top = Math.random() * 280 + 'px';
+                map.appendChild(threatElement);
+                
+                animateThreat(threatElement, threat.responseTime);
+            });
+        }
+
+        function animateThreat(element, responseTime) {
+            let start = null;
+            function step(timestamp) {
+                if (!start) start = timestamp;
+                const progress = (timestamp - start) / (responseTime * 1000);
+                element.style.left = Math.min(progress * 100, 100) + '%';
+                if (progress < 1) {
+                    requestAnimationFrame(step);
+                } else {
+                    element.remove();
+                    recordHit();
+                }
+            }
+            requestAnimationFrame(step);
+        }
+
+        function intercept(systemName) {
+            const system = defenseSystems.find(s => s.name === systemName);
+            if (system && system.quantity > 0) {
+                system.quantity--;
+                const threat = activeThreats.find(t => t.type === system.type && t.quantity > 0);
+                if (threat) {
+                    threat.quantity--;
+                    if (threat.quantity === 0) {
+                        activeThreats = activeThreats.filter(t => t !== threat);
+                    }
+                    updateActiveThreats();
+                    updateDefenseSystemsDisplay();
+                }
+            }
+        }
+
+        function recordHit() {
+            const hitThreatsTable = document.getElementById('hitThreats');
+            hitThreatsTable.innerHTML += '<tr><td>איום פגע!</td></tr>';
+        }
+
+        updateDefenseSystemsDisplay();
+    </script>
+</body>
+</html>
